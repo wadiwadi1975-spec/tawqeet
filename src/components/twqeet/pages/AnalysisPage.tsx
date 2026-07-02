@@ -33,7 +33,7 @@ export default function AnalysisPage() {
             <div key={i} className="rounded-[9px] p-2.5 text-center" style={{ backgroundColor: bgColor }}>
               <div className={`text-xs font-bold mb-0.5 ${isHigh ? 'text-black/85' : 'text-white/85'}`}>{L(h, 'nm', lang)}</div>
               <div className={`text-sm font-bold ${isHigh ? 'text-black' : 'text-white'}`}>{h.val}</div>
-              <div className={`text-xs mt-0.5 ${isHigh ? 'text-black/60' : 'text-white/60'}`}>{h.sc}pts</div>
+              <div className={`text-xs mt-0.5 ${isHigh ? 'text-black/60' : 'text-white/60'}`}>{h.sc}{t('analysis.points')}</div>
             </div>
           );
         })}

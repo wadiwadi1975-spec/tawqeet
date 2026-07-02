@@ -12,8 +12,9 @@ export default function PriceChart({ spot }: { spot: number | null }) {
     const year = now.getFullYear();
     const month = now.getMonth();
     const today = now.getDate();
-    const days = range === 'week' ? Math.min(7, today) : today;
-    const base = spot || 4150;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days = range === 'week' ? Math.min(7, today) : Math.min(today, daysInMonth);
+    const base = spot || 3960;
     const startPrice = base * (1 - 0.025);
     const series = [];
     let prev = startPrice;
@@ -47,9 +48,8 @@ export default function PriceChart({ spot }: { spot: number | null }) {
   const monthChange = data.length > 1 ? +((prices[prices.length - 1] - prices[0]) / prices[0] * 100).toFixed(2) : 0;
   const isUp = monthChange >= 0;
 
-  // Simple bar chart data
-  const chartHeight = 120;
-  const barWidth = Math.max(2, Math.floor(300 / data.length) - 2);
+  const chartHeight = 200;
+  const barWidth = Math.max(4, Math.floor(350 / data.length) - 3);
 
   return (
     <div className="bg-card border border-gold/30 rounded-xl overflow-hidden mb-3 relative">
@@ -78,29 +78,30 @@ export default function PriceChart({ spot }: { spot: number | null }) {
           <div className="text-sm font-bold text-danger">${formatNumber(monthLow)}</div>
         </div>
       </div>
-      {/* Simple bar chart */}
-      <div className="p-3" style={{ height: chartHeight + 30 }}>
+      {/* Bar chart */}
+      <div className="p-4" style={{ height: chartHeight + 40 }}>
         <div className="flex items-end justify-between h-full gap-0.5" style={{ height: chartHeight }}>
           {data.map((d, i) => {
-            const range = maxP - minP || 1;
-            const height = ((d.price - minP) / range) * (chartHeight - 20) + 10;
+            const priceRange = maxP - minP || 1;
+            const height = ((d.price - minP) / priceRange) * (chartHeight - 30) + 15;
             const isLast = i === data.length - 1;
             return (
-              <div key={i} className="flex flex-col items-center flex-1">
+              <div key={i} className="flex flex-col items-center flex-1 group">
                 <div
-                  className={`w-full rounded-t-sm transition-all duration-300 ${isLast ? 'bg-gold' : d.change >= 0 ? 'bg-emerald/60' : 'bg-danger/60'}`}
+                  className={`w-full rounded-t transition-all duration-300 ${isLast ? 'bg-gold' : d.change >= 0 ? 'bg-emerald/70' : 'bg-danger/70'}`}
                   style={{ height: `${height}px`, minWidth: `${barWidth}px` }}
                 />
               </div>
             );
           })}
         </div>
-        <div className="flex justify-between mt-1">
+        <div className="flex justify-between mt-2">
           <span className="text-[10px] text-muted-foreground">{data[0]?.label}</span>
+          <span className="text-[10px] text-muted-foreground">{data[Math.floor(data.length / 2)]?.label}</span>
           <span className="text-[10px] text-muted-foreground">{data[data.length - 1]?.label}</span>
         </div>
       </div>
-      <div className="px-3 py-1.5 bg-secondary border-t border-gold/15 flex justify-between">
+      <div className="px-3 py-2 bg-secondary border-t border-gold/15 flex justify-between">
         <span className="text-xs text-muted-foreground">{t('chart.average')}: ${formatNumber(avg)}</span>
         <span className="text-xs text-muted-foreground">{data.length} {t('chart.days')}</span>
       </div>

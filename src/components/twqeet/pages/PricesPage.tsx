@@ -59,13 +59,13 @@ export default function PricesPage({ spot, pct, gram24, fx, fxSrc, isUp }: Price
                     <thead>
                       <tr>
                         <th className="p-2 text-muted-foreground font-semibold text-right border-b border-gold/15">{t('prices.karat')}</th>
-                        {GRAMS.map(g => (<th key={g} className="p-2 text-muted-foreground font-semibold text-right border-b border-gold/15">{g}غ</th>))}
+                        {GRAMS.map(g => (<th key={g} className="p-2 text-muted-foreground font-semibold text-right border-b border-gold/15">{g}{t('prices.gramAbbrev')}</th>))}
                       </tr>
                     </thead>
                     <tbody>
                       {KARATS.map(k => (
                         <tr key={k.k}>
-                          <td className="p-2 text-muted-foreground border-b border-border/30">{k.k}ق</td>
+                          <td className="p-2 text-muted-foreground border-b border-border/30">{k.k}{t('prices.karatAbbrev')}</td>
                           {GRAMS.map(g => (<td key={g} className={`p-2 font-bold border-b border-border/30 ${k.cls}`}>{formatPrice(rg * k.m * g)}</td>))}
                         </tr>
                       ))}

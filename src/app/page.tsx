@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import TopNav from "@/components/twqeet/TopNav";
 import Ticker from "@/components/twqeet/Ticker";
@@ -30,7 +30,7 @@ function Splash({ onEnter }: { onEnter: () => void }) {
     })), []);
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-[#090909] max-w-[430px] mx-auto relative overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-[#090909] max-w-[430px] mx-auto relative overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(ellipse 80% 55% at 50% 35%, rgba(212,175,55,0.10) 0%, transparent 65%)' }}
       />
@@ -46,8 +46,8 @@ function Splash({ onEnter }: { onEnter: () => void }) {
           <div className="absolute w-[200px] h-[200px] rounded-full animate-glow" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.14) 0%, transparent 70%)' }} />
           <div className="absolute w-[180px] h-[180px] rounded-full border border-gold/10 animate-rotate" />
           <div className="absolute w-[215px] h-[215px] rounded-full border border-gold/10 animate-rotate-reverse" />
-          <div className="w-[158px] h-[158px] rounded-full bg-black/25 border-2 border-gold/20 flex items-center justify-center relative z-10">
-            <TwqeetLogo size={128} />
+          <div className="w-[158px] h-[158px] rounded-full bg-black/25 border-2 border-gold/20 flex items-center justify-center relative z-10 overflow-hidden">
+            <TwqeetLogo size={158} />
           </div>
         </motion.div>
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3, duration: 0.6 }} className="text-center mb-2.5">
@@ -67,7 +67,7 @@ function Splash({ onEnter }: { onEnter: () => void }) {
               {t('common.liveData')}
             </div>
           </div>
-          <div className="text-left">
+          <div className={lang === 'ar' ? 'text-left' : 'text-right'}>
             <div className={`text-sm font-bold ${gold.isUp ? 'text-emerald' : 'text-danger'}`}>
               {gold.spot ? (gold.isUp ? '▲ +' : '▼ ') + Math.abs(gold.pct || 0).toFixed(2) + '%' : '—'}
             </div>
@@ -78,7 +78,7 @@ function Splash({ onEnter }: { onEnter: () => void }) {
           <button onClick={onEnter} className="w-full py-4 rounded-[22px] border-none bg-gold text-black text-sm font-bold cursor-pointer mb-2.5 tracking-wide active:opacity-85 min-h-[44px]">{t('splash.startNow')}</button>
           <button onClick={onEnter} className="w-full py-3.5 rounded-[22px] bg-transparent border border-gold/30 text-gold text-sm font-semibold cursor-pointer mb-4 active:bg-gold/10 min-h-[44px]">{t('splash.login')}</button>
           <div className="text-sm text-muted-foreground text-center leading-relaxed">
-            بالاستمرار أنت توافق على <span className="text-gold">شروط الاستخدام</span> و <span className="text-gold">سياسة الخصوصية</span>
+            {t('common.agree')} <span className="text-gold">{t('common.terms')}</span> {lang === 'ar' ? 'و' : '&'} <span className="text-gold">{t('common.privacy')}</span>
           </div>
           <div className="text-sm text-gold/30 text-center mt-2.5 tracking-widest font-semibold">WADI1975</div>
         </motion.div>
@@ -91,6 +91,7 @@ export default function TawqeetApp() {
   const [showSplash, setShowSplash] = useState(true);
   const [activeTab, setActiveTab] = useState("home");
   const gold = useGoldPrice();
+  const { lang } = useI18n();
 
   if (showSplash) {
     return <Splash onEnter={() => setShowSplash(false)} />;
@@ -109,12 +110,12 @@ export default function TawqeetApp() {
   };
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-[#090909] max-w-[430px] mx-auto relative overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-[#090909] max-w-[430px] mx-auto relative overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <TopNav />
       <Ticker spot={gold.spot} pct={gold.pct} fx={gold.fx} />
       <div className="flex-1 overflow-y-auto hide-scrollbar px-3.5 pt-3.5">
         <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: 'easeOut' }}>
+          <motion.div key={`${activeTab}-${lang}`} initial={{ opacity: 0, x: lang === 'ar' ? 20 : -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: lang === 'ar' ? -20 : 20 }} transition={{ duration: 0.2, ease: 'easeOut' }}>
             {renderPage()}
           </motion.div>
         </AnimatePresence>
