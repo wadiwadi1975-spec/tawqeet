@@ -1,5 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
+import {
+  fetchGoldPrice,
+  fetchSilverPrice,
+  fetchCurrencies,
+  calculateKWDGoldPrices,
+  type GoldPrice,
+  type MarketItem,
+} from "../lib/api";
 
 type Indicator = {
   id: string;
@@ -48,15 +56,6 @@ const initialIndicators: Indicator[] = [
   { id: "sentiment", name: "سلوك السوق", icon: "📊", value: "خوف", impact: 1, explanation: "Fear Index مرتفع — فرصة شراء", source: "CNN Fear & Greed", detail: "سلوك السوق يقيس مشاعر المستثمرين (طمع vs خوف). عندما يسود الخوف،往往 يكون فرصة شراء جيدة. نستخدم CNN Fear & Greed Index كمؤشر تقريبي." },
 ];
 
-const MARKET_DATA = [
-  { sym: "XAU/USD", nm: "ذهب", v: "$3,310.00", c: "+0.45%", up: true },
-  { sym: "XAG/USD", nm: "فضة", v: "$32.50", c: "+0.85%", up: true },
-  { sym: "DXY", nm: "الدولار", v: "97.2", c: "-0.8%", up: false },
-  { sym: "VIX", nm: "التقلب", v: "18.4", c: "+8.9%", up: true },
-  { sym: "BRENT", nm: "نفط برنت", v: "$82.50", c: "+3.1%", up: true },
-  { sym: "S&P500", nm: "أسهم", v: "5,482", c: "+0.5%", up: true },
-];
-
 const TIMELINE_DATA = [
   { date: "اليوم", score: 4, decision: "شراء", price: "$3,310", color: "#22C55E" },
   { date: "أمس", score: 3, decision: "شراء", price: "$3,295", color: "#22C55E" },
@@ -73,34 +72,63 @@ export default function TawqeetApp() {
   const [indicators, setIndicators] = useState<Indicator[]>(initialIndicators);
   const [showDetail, setShowDetail] = useState(false);
   const [detailIndicator, setDetailIndicator] = useState<Indicator | null>(null);
+
   const [goldPrice, setGoldPrice] = useState<number | null>(null);
+  const [goldChange, setGoldChange] = useState(0);
+  const [goldChangePercent, setGoldChangePercent] = useState("+0.00%");
+  const [goldSource, setGoldSource] = useState("");
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  const [silverPrice, setSilverPrice] = useState<number | null>(null);
+  const [kwdPrices, setKwdPrices] = useState({ k24: 0, k22: 0, k21: 0, k18: 0 });
+  const [currencies, setCurrencies] = useState<MarketItem[]>([]);
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
   const score = indicators.reduce((sum, ind) => sum + ind.impact, 0);
   const decision = getDecision(score);
 
+  // Splash screen
   useEffect(() => {
     const timer = setTimeout(() => setScreen("login"), 2500);
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch all data on mount
   useEffect(() => {
-    fetchGoldPrice();
-    const interval = setInterval(fetchGoldPrice, 60000);
+    fetchAllData();
+    const interval = setInterval(fetchAllData, 60000); // Update every 60 seconds
     return () => clearInterval(interval);
   }, []);
 
-  async function fetchGoldPrice() {
+  async function fetchAllData() {
     try {
-      const r = await fetch("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json", { signal: AbortSignal.timeout(8000) });
-      const d = await r.json();
-      if (d?.xau?.usd && d.xau.usd > 500 && d.xau.usd < 20000) {
-        setGoldPrice(d.xau.usd);
-        setLastUpdate(new Date());
-      }
-    } catch {
-      setGoldPrice(3310 + (Math.random() - 0.5) * 20);
+      // Fetch gold price
+      const goldData = await fetchGoldPrice();
+      setGoldPrice(goldData.price);
+      setGoldChange(goldData.change);
+      setGoldChangePercent(goldData.changePercent);
+      setGoldSource(goldData.source);
       setLastUpdate(new Date());
+
+      // Track price history
+      setPriceHistory(prev => {
+        const newHistory = [...prev, goldData.price];
+        return newHistory.slice(-10); // Keep last 10 prices
+      });
+
+      // Calculate KWD prices
+      const kwd = calculateKWDGoldPrices(goldData.price);
+      setKwdPrices(kwd);
+
+      // Fetch silver price
+      const silver = await fetchSilverPrice();
+      setSilverPrice(silver);
+
+      // Fetch currencies
+      const curr = await fetchCurrencies();
+      setCurrencies(curr);
+    } catch (error) {
+      console.error("Error fetching data:", error);
     }
   }
 
@@ -122,6 +150,7 @@ export default function TawqeetApp() {
     setShowDetail(true);
   }
 
+  // SPLASH SCREEN
   if (screen === "splash") {
     return (
       <div style={{ height: "100vh", background: "#1A1612", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
@@ -148,6 +177,7 @@ export default function TawqeetApp() {
     );
   }
 
+  // LOGIN SCREEN
   if (screen === "login") {
     return (
       <div style={{ height: "100vh", background: "#1A1612", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px" }}>
@@ -196,6 +226,7 @@ export default function TawqeetApp() {
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
+        {/* HOME TAB */}
         {activeTab === "home" && (
           <>
             {/* Decision Card */}
@@ -218,17 +249,72 @@ export default function TawqeetApp() {
               </div>
             </div>
 
-            {/* Gold Price */}
+            {/* Gold Price - LIVE */}
             {goldPrice && (
-              <div style={{ background: "#231E19", border: "1px solid #2D2620", borderRadius: 12, padding: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 9, color: "#6B5D4D", letterSpacing: 1 }}>XAU / USD</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#FAC775" }}>${goldPrice.toLocaleString("en", { minimumFractionDigits: 2 })}</div>
+              <div style={{ background: "#231E19", border: "1px solid #2D2620", borderRadius: 14, padding: 16, marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: "#6B5D4D", letterSpacing: 1 }}>XAU / USD</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: "#FAC775" }}>
+                      ${goldPrice.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: 12, color: goldChange >= 0 ? "#22C55E" : "#EF4444", fontWeight: 700 }}>
+                      {goldChange >= 0 ? "▲" : "▼"} {goldChangePercent}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#6B5D4D", marginTop: 2 }}>آخر تحديث: {lastUpdate?.toLocaleTimeString("ar")}</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: 11, color: "#22C55E", fontWeight: 600 }}>آخر تحديث</div>
-                  <div style={{ fontSize: 9, color: "#6B5D4D" }}>{lastUpdate?.toLocaleTimeString("ar")}</div>
+
+                {/* Mini chart */}
+                {priceHistory.length > 1 && (
+                  <div style={{ height: 40, display: "flex", alignItems: "flex-end", gap: 2, marginBottom: 8 }}>
+                    {priceHistory.map((price, i) => {
+                      const min = Math.min(...priceHistory);
+                      const max = Math.max(...priceHistory);
+                      const range = max - min || 1;
+                      const height = ((price - min) / range) * 35 + 5;
+                      const isLast = i === priceHistory.length - 1;
+                      return (
+                        <div key={i} style={{
+                          flex: 1,
+                          height: `${height}px`,
+                          background: isLast ? "#BA7517" : price >= (priceHistory[i-1] || price) ? "#22C55E" : "#EF4444",
+                          borderRadius: 2,
+                          opacity: isLast ? 1 : 0.6,
+                        }} />
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* KWD Gold Prices */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                  <div style={{ background: "#1A1612", borderRadius: 8, padding: 8, border: "1px solid #2D2620" }}>
+                    <div style={{ fontSize: 8, color: "#6B5D4D" }}>24 قيراط</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#FAC775" }}>{kwdPrices.k24} د.ك</div>
+                  </div>
+                  <div style={{ background: "#1A1612", borderRadius: 8, padding: 8, border: "1px solid #2D2620" }}>
+                    <div style={{ fontSize: 8, color: "#6B5D4D" }}>22 قيراط</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#FAC775" }}>{kwdPrices.k22} د.ك</div>
+                  </div>
+                  <div style={{ background: "#1A1612", borderRadius: 8, padding: 8, border: "1px solid #2D2620" }}>
+                    <div style={{ fontSize: 8, color: "#6B5D4D" }}>21 قيراط</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#FAC775" }}>{kwdPrices.k21} د.ك</div>
+                  </div>
+                  <div style={{ background: "#1A1612", borderRadius: 8, padding: 8, border: "1px solid #2D2620" }}>
+                    <div style={{ fontSize: 8, color: "#6B5D4D" }}>18 قيراط</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#FAC775" }}>{kwdPrices.k18} د.ك</div>
+                  </div>
                 </div>
+
+                {silverPrice && (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12, color: "#6B5D4D" }}>🪙 XAG/USD:</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#A89880" }}>${silverPrice.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -271,27 +357,68 @@ export default function TawqeetApp() {
           </>
         )}
 
+        {/* MARKET TAB */}
         {activeTab === "market" && (
           <>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#BA7517", letterSpacing: 1, marginBottom: 10 }}>السوق</div>
-            {MARKET_DATA.map((m, i) => (
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#BA7517", letterSpacing: 1, marginBottom: 10 }}>السوق — أسعار مباشرة</div>
+
+            {/* Gold highlight */}
+            {goldPrice && (
+              <div style={{ background: "#231E19", border: "1px solid #BA7517", borderRadius: 14, padding: 16, marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: "#BA7517", letterSpacing: 1 }}>🪙 XAU/USD — الذهب</div>
+                    <div style={{ fontSize: 32, fontWeight: 900, color: "#FAC775" }}>
+                      ${goldPrice.toLocaleString("en", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: 14, color: goldChange >= 0 ? "#22C55E" : "#EF4444", fontWeight: 700 }}>
+                      {goldChange >= 0 ? "▲" : "▼"} {goldChangePercent}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#6B5D4D" }}>ال来源: {goldSource}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Currencies */}
+            {currencies.map((m, i) => (
               <div key={i} style={{ background: "#231E19", border: "1px solid #2D2620", borderRadius: 10, padding: 12, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 10, color: "#BA7517", fontWeight: 700 }}>{m.sym}</div>
                   <div style={{ fontSize: 10, color: "#A89880" }}>{m.nm}</div>
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#F5F0E8" }}>{m.v}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#F5F0E8" }}>{m.v}</div>
                   <div style={{ fontSize: 9, color: m.up ? "#22C55E" : "#EF4444" }}>{m.up ? "▲" : "▼"} {m.c}</div>
                 </div>
               </div>
             ))}
+
+            {currencies.length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: "#6B5D4D" }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+                <div>جاري تحميل الأسعار...</div>
+              </div>
+            )}
           </>
         )}
 
+        {/* ANALYSIS TAB */}
         {activeTab === "analysis" && (
           <>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#BA7517", letterSpacing: 1, marginBottom: 10 }}>التحليل</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#BA7517", letterSpacing: 1, marginBottom: 10 }}>التحليل — شرح تفصيلي</div>
+
+            {/* Score Summary */}
+            <div style={{ background: decision.bgColor, border: `1px solid ${decision.borderColor}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: 12, color: "#A89880" }}>النتيجة الإجمالية</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: decision.color }}>{score > 0 ? "+" : ""}{score}</div>
+              </div>
+              <div style={{ fontSize: 11, color: decision.color, fontWeight: 700, marginTop: 4 }}>{decision.label}</div>
+            </div>
+
             {indicators.map((ind) => (
               <div key={ind.id} style={{ background: "#231E19", border: "1px solid #2D2620", borderRadius: 10, padding: 12, marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -299,36 +426,42 @@ export default function TawqeetApp() {
                     <span>{ind.icon}</span> {ind.name}
                   </div>
                   <div style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, background: ind.impact > 0 ? "rgba(34,197,94,0.1)" : ind.impact < 0 ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)", color: ind.impact > 0 ? "#22C55E" : ind.impact < 0 ? "#EF4444" : "#F59E0B", fontWeight: 700 }}>
-                    {ind.impact > 0 ? "إيجابي" : ind.impact < 0 ? "سلبي" : "محايد"}
+                    {ind.impact > 0 ? "إيجابي +" : ind.impact < 0 ? "سلبي -" : "محايد"}
                   </div>
                 </div>
                 <div style={{ fontSize: 11, color: "#A89880", lineHeight: 1.8 }}>{ind.detail}</div>
-                <div style={{ height: 3, background: "#2D2620", borderRadius: 2, marginTop: 8, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${Math.abs(ind.impact) * 50 + 30}%`, background: ind.impact > 0 ? "#22C55E" : ind.impact < 0 ? "#EF4444" : "#F59E0B", borderRadius: 2 }} />
+                <div style={{ height: 4, background: "#2D2620", borderRadius: 2, marginTop: 8, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.abs(ind.impact) * 50 + 30}%`, background: ind.impact > 0 ? "#22C55E" : ind.impact < 0 ? "#EF4444" : "#F59E0B", borderRadius: 2, transition: "width 0.3s" }} />
+                </div>
+                <div style={{ fontSize: 10, color: "#A89880", marginTop: 6 }}>
+                  <strong style={{ color: "#BA7517" }}>{ind.name}:</strong> {ind.explanation}
                 </div>
               </div>
             ))}
           </>
         )}
 
+        {/* TIMELINE TAB */}
         {activeTab === "timeline" && (
           <>
             <div style={{ fontSize: 9, fontWeight: 700, color: "#BA7517", letterSpacing: 1, marginBottom: 10 }}>سجل القرارات</div>
             {TIMELINE_DATA.map((t, i) => (
               <div key={i} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: "1px solid #2D2620" }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.color }} />
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.color }} />
+                  {i < TIMELINE_DATA.length - 1 && <div style={{ width: 2, flex: 1, background: "#2D2620", marginTop: 4 }} />}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, paddingBottom: 8 }}>
                   <div style={{ fontSize: 9, color: "#6B5D4D" }}>{t.date}</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, margin: "2px 0" }}>Score: {t.score > 0 ? "+" : ""}{t.score}</div>
-                  <div style={{ fontSize: 10, color: "#A89880" }}>القرار: {t.decision} | السعر: {t.price}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, margin: "4px 0", color: t.color }}>Score: {t.score > 0 ? "+" : ""}{t.score}</div>
+                  <div style={{ fontSize: 11, color: "#A89880" }}>القرار: <strong>{t.decision}</strong> | السعر: <strong>{t.price}</strong></div>
                 </div>
               </div>
             ))}
           </>
         )}
 
+        {/* SETTINGS TAB */}
         {activeTab === "settings" && (
           <>
             <div style={{ fontSize: 9, fontWeight: 700, color: "#BA7517", letterSpacing: 1, marginBottom: 10 }}>الإعدادات</div>
@@ -337,10 +470,10 @@ export default function TawqeetApp() {
             <div style={{ background: "#231E19", border: "1px solid #BA7517", borderRadius: 12, padding: 14, marginBottom: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}> Investor</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Investor Plan</div>
                   <div style={{ fontSize: 9, color: "#BA7517", marginTop: 2 }}>الأكثر شيوعاً</div>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#BA7517" }}>9.99 <span style={{ fontSize: 9, color: "#6B5D4D" }}>$/شهر</span></div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#BA7517" }}>9.99 <span style={{ fontSize: 9, color: "#6B5D4D" }}>$ / شهر</span></div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
                 {["تحليل يومي", "سجل القرارات", "تنبيهات الأسعار", "Heat Map"].map((f, i) => (
@@ -417,7 +550,7 @@ export default function TawqeetApp() {
       {/* Detail Modal */}
       {showDetail && detailIndicator && (
         <div onClick={() => setShowDetail(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 100 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#231E19", border: "1px solid #2D2620", borderRadius: 14, padding: 20, width: "100%", maxWidth: 340 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#231E19", border: "1px solid #2D2620", borderRadius: 14, padding: 20, width: "100%", maxWidth: 340, maxHeight: "80vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
               <span style={{ fontSize: 24 }}>{detailIndicator.icon}</span>
               <div>
