@@ -1,13 +1,15 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 
 export default function SettingsPage() {
   const { t, lang, setLang } = useI18n();
+  const [priceAlerts, setPriceAlerts] = useState(true);
+  const [autoUpdate, setAutoUpdate] = useState(true);
 
   return (
     <div dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      {/* Language Toggle - Prominent */}
+      {/* Language Toggle */}
       <div className="bg-gradient-to-br from-gold/10 to-gold/5 border border-gold/30 rounded-xl p-4 mb-4">
         <div className="text-xs font-bold text-gold tracking-widest mb-3">{t('settings.language')}</div>
         <div className="flex gap-2">
@@ -70,9 +72,9 @@ export default function SettingsPage() {
         <button className="w-full py-3 rounded-xl bg-transparent border border-gold/30 text-gold text-sm font-bold cursor-pointer active:bg-gold/10 min-h-[44px]">{t('settings.upgrade')}</button>
       </div>
 
-      {/* Other Settings */}
+      {/* Settings */}
       <div className="bg-[#0f0f0f] border border-gold/15 rounded-xl p-3.5 mb-3">
-        <div className="text-xs font-bold text-gold tracking-widest mb-2">{t('settings.settingsTitle')}</div>
+        <div className="text-xs font-bold text-gold tracking-widest mb-3">{t('settings.settingsTitle')}</div>
 
         <div className="mb-3">
           <div className="text-xs text-muted-foreground mb-1">{t('settings.currency')}</div>
@@ -84,23 +86,27 @@ export default function SettingsPage() {
           </select>
         </div>
 
-        <div className="flex justify-between items-center py-2.5 border-b border-border/30">
-          <div>
-            <div className="text-xs font-semibold">{t('settings.priceNotifications')}</div>
-          </div>
-          <div className="w-9 h-5 rounded-full bg-gold relative cursor-pointer">
-            <div className="w-4 h-4 rounded-full bg-white absolute top-0.5 left-4.5" />
-          </div>
+        <div className="flex justify-between items-center py-3 border-b border-border/30">
+          <div className="text-xs font-semibold">{t('settings.priceNotifications')}</div>
+          <button
+            onClick={() => setPriceAlerts(!priceAlerts)}
+            className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors duration-200 ${priceAlerts ? 'bg-gold' : 'bg-gray-600'}`}
+          >
+            <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all duration-200 ${priceAlerts ? 'left-5.5' : 'left-0.5'}`} />
+          </button>
         </div>
 
-        <div className="flex justify-between items-center py-2.5">
+        <div className="flex justify-between items-center py-3">
           <div>
             <div className="text-xs font-semibold">{t('settings.autoUpdate')}</div>
             <div className="text-xs text-muted-foreground">{t('settings.every60s')}</div>
           </div>
-          <div className="w-9 h-5 rounded-full bg-gold relative cursor-pointer">
-            <div className="w-4 h-4 rounded-full bg-white absolute top-0.5 left-4.5" />
-          </div>
+          <button
+            onClick={() => setAutoUpdate(!autoUpdate)}
+            className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors duration-200 ${autoUpdate ? 'bg-gold' : 'bg-gray-600'}`}
+          >
+            <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all duration-200 ${autoUpdate ? 'left-5.5' : 'left-0.5'}`} />
+          </button>
         </div>
       </div>
 
